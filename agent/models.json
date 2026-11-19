@@ -1,0 +1,15 @@
+{
+  "$schema": "https://pi.dev/schemas/models.schema.json",
+  "providers": {
+    "llama.cpp": {
+      "name": "llama.cpp",
+      "baseUrl": "http://host.docker.internal:9931",
+      "api": "openai-completions",
+      "models": [
+        {
+          "id": "unsloth/Qwen3.6-35B-A3B-GGUF:Q4_K_M"
+        }
+      ]
+    }
+  }
+}

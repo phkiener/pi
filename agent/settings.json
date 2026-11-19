@@ -1,0 +1,7 @@
+{
+  "$schema": "https://pi.dev/schemas/settings.schema.json",
+  "quietStartup": true,
+  "compaction.enabled": true,
+  "compaction.reserveTokens": 8192,
+  "theme": "system"
+}
