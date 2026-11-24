@@ -3,11 +3,13 @@
   "providers": {
     "llama.cpp": {
       "name": "llama.cpp",
-      "baseUrl": "http://host.docker.internal:9931",
       "api": "openai-completions",
+      "baseUrl": "http://host.docker.internal:9931",
+      "apiKey": "unused",
       "models": [
         {
-          "id": "unsloth/Qwen3.6-35B-A3B-GGUF:Q4_K_M"
+          "id": "unsloth/Qwen3.6-35B-A3B-GGUF:Q4_K_M",
+          "name": "Qwen 3.6"
         }
       ]
     }

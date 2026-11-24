@@ -1,7 +1,11 @@
 {
   "$schema": "https://pi.dev/schemas/settings.schema.json",
+  "theme": "system",
   "quietStartup": true,
   "compaction.enabled": true,
   "compaction.reserveTokens": 8192,
-  "theme": "system"
+  "defaultProvider": "llama.cpp",
+  "defaultModel": "unsloth/Qwen3.6-35B-A3B-GGUF:Q4_K_M",
+  "enableInstallTelemetry": false,
+  "enableAnalytics": false
 }
