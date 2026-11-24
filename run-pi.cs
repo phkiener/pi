@@ -28,7 +28,7 @@ try
         .. EnumerateIgnoredPaths().Select(MakeWorkspacePath),
 
         // include the configuration inside as read-only
-        .. ConfigFiles.Select(file => $"{Path.Combine(scriptDir, file)}:{Path.Combine(ConfigPath, file)}:ro")
+        .. ConfigFiles.Select(file => MakeConfigBind(file, scriptDir))
     ];
 
     return await RunImageAsync(volumes, cancellation.Token);
@@ -40,13 +40,15 @@ catch (Exception e)
 
 string ResolveScriptDirectory([CallerFilePath] string? path = null)
 {
-    var scriptDirectory = Path.GetDirectoryName(path);
-    if (scriptDirectory is null)
+    if (path is null)
     {
         throw new ApplicationException("Cannot determine path to script itself, aborting.\nThis is not your fault.");
     }
 
-    return scriptDirectory;
+    var fileInfo = new FileInfo(path);
+    var realPath = fileInfo.LinkTarget ?? fileInfo.FullName;
+
+    return Path.GetDirectoryName(realPath) ?? "/";
 }
 
 async Task BuildImageAsync(string scriptDirectory, CancellationToken cancellationToken)
@@ -83,6 +85,7 @@ IEnumerable<string> EnumerateIgnoredPaths()
             if (ExcludedDirectories.Contains(subdirectory.Name))
             {
                 yield return subdirectory.FullName;
+                continue;
             }
 
             directoryQueue.Enqueue(subdirectory);
@@ -96,13 +99,24 @@ string MakeWorkspacePath(string path)
     return Path.Combine(WorkspacePath, relativePath);
 }
 
+string MakeConfigBind(string file, string scriptDirectory)
+{
+    return $"{Path.Combine(scriptDirectory, file)}:{Path.Combine(ConfigPath, file)}:ro";
+}
+
 async Task<int> RunImageAsync(string[] volumes, CancellationToken cancellationToken)
 {
+    var environmentArgs = new[]
+    {
+        "-e", "LLAMA_BASE_URL=http://host.docker.internal:9931",
+        "-e", "LLAMA_API_KEY=unused"
+    };
+
     var volumeArgs = volumes.SelectMany(v => new[] { "--volume", v });
 
     var runResult = await Process.RunAsync(
         fileName: "/usr/bin/env",
-        arguments: ["-S", "docker", "--", "run", "--rm", "-it", ..volumeArgs, "--name", "Pi", ImageName],
+        arguments: ["-S", "docker", "--", "run", "--rm", "-it", ..environmentArgs, ..volumeArgs, "--name", "Pi", ImageName],
         cancellationToken: cancellationToken);
 
     return runResult.ExitCode;
