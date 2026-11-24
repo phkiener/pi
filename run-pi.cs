@@ -5,10 +5,14 @@ using System.Runtime.CompilerServices;
 const string ImageName = "pi";
 const string WorkspacePath = "/workspace";
 const string ConfigPath = "/root/.pi/";
+
 string[] ConfigFiles = ["agent/models.json", "agent/APPEND_SYSTEM.md", "agent/settings.json"];
+string[] ExcludedDirectories = [".idea", ".vs", "node_modules", "obj", "bin"];
 
 var cancellation = new CancellationTokenSource();
 Console.CancelKeyPress += (_, _) => cancellation.Cancel();
+
+var forceBuild = args.Contains("--force-build");
 
 try
 {
@@ -34,31 +38,40 @@ catch (Exception e)
     return e is InvalidOperationException ? 1 : 255;
 }
 
-static string ResolveScriptDirectory([CallerFilePath] string? path = null)
+string ResolveScriptDirectory([CallerFilePath] string? path = null)
 {
     var scriptDirectory = Path.GetDirectoryName(path);
     if (scriptDirectory is null)
     {
-        throw new ApplicationException("Cannot determine path to script itself, aborting.\n This is not your fault.");
+        throw new ApplicationException("Cannot determine path to script itself, aborting.\nThis is not your fault.");
     }
 
     return scriptDirectory;
 }
 
-static async Task BuildImageAsync(string scriptDirectory, CancellationToken cancellationToken)
+async Task BuildImageAsync(string scriptDirectory, CancellationToken cancellationToken)
 {
+    var buildArgs = new[]
+    {
+        "--pull",
+        "-t", ImageName,
+        "-f", Path.Combine(scriptDirectory, "Dockerfile")
+    };
+
+    var extraArgs = forceBuild ? new[] { "--no-cache" } : [];
+
     var buildResult = await Process.RunAndCaptureTextAsync(
         fileName: "/usr/bin/env",
-        arguments: ["-S", "docker", "--", "build", "--pull", "-t", ImageName, "-f", Path.Combine(scriptDirectory, "Dockerfile"), scriptDirectory],
+        arguments: ["-S", "docker", "--", "build", ..buildArgs, ..extraArgs, scriptDirectory],
         cancellationToken: cancellationToken);
 
     if (buildResult.ExitStatus.ExitCode is not 0)
     {
-        throw new InvalidOperationException($"Failed to build image\n{buildResult.StandardOutput}");
+        throw new InvalidOperationException($"Failed to build image.\n{buildResult.StandardOutput}");
     }
 }
 
-static IEnumerable<string> EnumerateIgnoredPaths()
+IEnumerable<string> EnumerateIgnoredPaths()
 {
     var directoryQueue = new Queue<DirectoryInfo>();
     directoryQueue.Enqueue(new DirectoryInfo(Environment.CurrentDirectory));
@@ -67,7 +80,7 @@ static IEnumerable<string> EnumerateIgnoredPaths()
     {
         foreach (var subdirectory in directory.GetDirectories())
         {
-            if (subdirectory.Name is "node_modules")
+            if (ExcludedDirectories.Contains(subdirectory.Name))
             {
                 yield return subdirectory.FullName;
             }
@@ -77,13 +90,13 @@ static IEnumerable<string> EnumerateIgnoredPaths()
     }
 }
 
-static string MakeWorkspacePath(string path)
+string MakeWorkspacePath(string path)
 {
     var relativePath = Path.GetRelativePath(Environment.CurrentDirectory, path);
     return Path.Combine(WorkspacePath, relativePath);
 }
 
-static async Task<int> RunImageAsync(string[] volumes, CancellationToken cancellationToken)
+async Task<int> RunImageAsync(string[] volumes, CancellationToken cancellationToken)
 {
     var volumeArgs = volumes.SelectMany(v => new[] { "--volume", v });
 
